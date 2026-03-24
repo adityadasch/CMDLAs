@@ -1,0 +1,31 @@
+{
+  "add": [
+    "Add a new item to your list",
+    {
+      "task": "The description of the task to add",
+      "priority": "Optional priority level (e.g., high, medium, low)"
+    }
+  ],
+  "rem": [
+    "Remove an item from your list",
+    {
+      "index": "The task identifier to remove"
+    }
+  ],
+  "mark": [
+    "Mark a task as completed",
+    {
+      "index": "The task identifier to mark as done"
+    }
+  ],
+  "unmark": [
+    "Unmark a task (set back to incomplete)",
+    {
+      "index": "The task identifier to unmark"
+    }
+  ],
+  "list": [
+    "List all tasks currently in the system",
+    {}
+  ]
+}
