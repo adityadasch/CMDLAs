@@ -2,6 +2,10 @@ from dataclasses import dataclass
 import re
 from typing import List, Tuple
 from plum import dispatch
+import pathlib
+from colorama import Fore, Style, init
+
+init(autoreset=True)
 
 @dataclass
 class Parameter:
@@ -19,7 +23,15 @@ class Parameter:
 class Command:
     def __init__(self, name:str, alias:Tuple[str] = [], default_param:str = '_',acceptsArgs:bool = True, accepted_param:Tuple[Parameter|str] = [], function: callable = None):    
         # Gaurdrails
-        if accepted_param and default_param not in [p.key if isinstance(p, Parameter) else p for p in accepted_param]:
+        all_alias_accepted = []
+        for par in accepted_param:
+            if isinstance(par,Parameter):
+                all_alias_accepted.append(par.key)
+                for alias in par.alias:
+                    all_alias_accepted.append(alias)
+            else:
+                all_alias_accepted.append(par)
+        if accepted_param and (default_param not in all_alias_accepted):
             raise ValueError(f"Default param '{default_param}' not found in accepted_param list")
         if function is not None and not callable(function):
             raise TypeError("function must be callable")
@@ -27,6 +39,7 @@ class Command:
             raise TypeError("All aliases must be strings")
         if not all(isinstance(p, (Parameter, str)) for p in accepted_param):
             raise TypeError("accepted_param must contain only Parameter or str")
+        del all_alias_accepted
 
         # Init
         self.name = name
@@ -60,10 +73,16 @@ class Registrar:
         self.commands.append(cmd)
 
     @dispatch
-    def AddToRegistrar(self, cmd: List[Command]):
+    def AddToRegistrar(self, cmd: Tuple):
         for ind,ele in enumerate(cmd):
             if not isinstance(ele,Command):
-                raise TypeError(f'Command at index {ind} is of type {type(ind)}, expected type Command')
+                raise TypeError(f'Command at index {ind} is of type {ind.__class__.__name__}, expected type Command')
+            self.commands.append(ele)
+    
+    def AddMulToRegistrar(self, cmd: Tuple[Command]):
+        for ind,ele in enumerate(cmd):
+            if not isinstance(ele,Command):
+                raise TypeError(f'Command at index {ind} is of type {ind.__class__.__name__}, expected type Command')
             self.commands.append(ele)
 
     def RollBack(self) -> Command:
@@ -109,15 +128,77 @@ class Registrar:
         except ValueError:
             raise KeyError(f'{name} is not a valid command')
         return self.commands[indx]
+    
+
+class HelpProvider: 
+    def __init__(self, registrar: Registrar, description_file: str|pathlib.Path = pathlib.Path('description.json')): 
+        if not isinstance(description_file, (str, pathlib.Path)): 
+            raise TypeError( f"Invalid path type: {description_file.__class__.__name__}. Expected str or pathlib.Path." ) 
+        if not isinstance(registrar, Registrar):
+            raise TypeError(f'Excpected Registrar type, got {registrar.__class__.__name__}')
+
+        self.description_file: pathlib.Path = description_file if isinstance(description_file, pathlib.Path) else \
+        pathlib.Path(description_file)
+        self.reg = registrar
+    
+    def _load_desc(self):
+        import json
+        try:
+            with self.description_file.open(encoding='utf-8') as fp:
+                data = json.load(fp)
+        except FileNotFoundError:
+            raise ValueError(f'File {self.description_file.name} doesn\'t exist')
+        except json.JSONDecodeError:
+            raise SyntaxError('JSON with correct syntax is not provided')
+        except UnicodeDecodeError:
+            raise ValueError(f"File {self.description_file.name} could not be decoded with UTF-8")
+        return data
+
+    
+    def GenerateHelpCommand(self):
+        '''
+        Available functions YELLOW:
+        \t <propmt RED> cmd1GREEN [<alias> CYAN]:
+        \t\t <description BRIGHT WHITE>
+        \t\t Accepted ParamsYELLOW: <parameters>
+        \t\t -Param1CYAN: <param_desc>
+        '''
+
+        class Help:
+            reg:Registrar
+            desc: dict = None
+    
+            @classmethod
+            def print_help(cls):
+                desc = cls.desc
+                print(Fore.YELLOW+Style.BRIGHT+'Available functions')
+                for cmd, data in desc.items():
+                    print(Fore.RED+cls.reg.prompt+Style.RESET_ALL+Fore.GREEN+Style.BRIGHT+cmd,end='')
+                    print(f'{Fore.CYAN}[{Style.BRIGHT+','.join([alias for alias in cls.reg.GetCommandAt(cmd).alias])+Style.NORMAL}]:')
+                    print(f'\t{data[0]}')
+                    print(f'\t{Fore.YELLOW}Accepted Parameters{Style.RESET_ALL}: {', '.join([arg if isinstance(arg,str) else arg.key for arg in cls.reg.GetCommandAt(cmd).accepted])}')
+                    for arg in cls.reg.GetCommandAt(cmd).accepted:
+                        if isinstance(arg, str):
+                            print(f'\t{Fore.CYAN}{arg}: {data[1][arg]}')
+                        elif isinstance(arg, Parameter):
+                            print(f'\t{Fore.CYAN}{arg.key}{Style.DIM}[{','.join([alias for alias in arg.alias])}]{Style.RESET_ALL}: {data[1][arg.key]}')
+
+        Help.reg,Help.desc = self.reg, self._load_desc()
+        return Help
+            
 
 APP = Registrar()
 
+
 class Interface:
     currentReg:Registrar = APP
+    doHelp: bool = False
+    help_docs_path: str = 'description.json'
     _runFlag:bool = True
     _isFromCmd:bool = True
     _listIndex: int
     _listInput:list[str]
+    _helpClass: "Help"
 
     @classmethod
     def _Quit(cls):
@@ -175,18 +256,33 @@ class Interface:
 
     @classmethod
     def StartLoop(cls):
-        quitCmd = cls.currentReg.commands[cls.currentReg.quitCommand]
-        cls.currentReg.BindFunction(quitCmd.name, cls._Quit) # Bind quit command to Quit function to flip the flag
+        if cls.doHelp:
+            cls._helpClass = HelpProvider(cls.currentReg, pathlib.Path(cls.help_docs_path)).GenerateHelpCommand()
+            
+            try: cls.currentReg.GetInfo('help')
+            except KeyError:#Doesn't exist
+                cls.currentReg.AddToRegistrar(Command('help',('h'),acceptsArgs=False,function=cls._helpClass.print_help))
+            else: cls.currentReg.GetCommandAt('help').bindedFunc = cls._helpClass.print_help
+
+        if cls.currentReg.quitCommand != -1:
+            quitCmd = cls.currentReg.commands[cls.currentReg.quitCommand]
+            cls.currentReg.BindFunction(quitCmd.name, cls._Quit) # Bind quit command to Quit function to flip the flag
 
         while cls._runFlag:
             user = cls._FetchInput()
 
             cmd_text = user[:user.find(' ')]
-            cmd = cls.currentReg.GetCommandAt(cmd_text)
-
-            if cmd.acceptsArgs:
-                remain = user.removeprefix(cmd_text).lstrip()
-                options = Interface._CreateOptionArg(remain, cmd.default_param, len(user.rstrip()) == len(cmd_text), cmd.accepted) 
-                cmd.bindedFunc(**options)
-            else:
-                cmd.bindedFunc()
+            try:
+                cmd = cls.currentReg.GetCommandAt(cmd_text)
+            except:
+                print('Command not recognised')
+                continue
+            try:
+                if cmd.acceptsArgs:
+                    remain = user.removeprefix(cmd_text).lstrip()
+                    options = Interface._CreateOptionArg(remain, cmd.default_param, len(user.rstrip()) == len(cmd_text), cmd.accepted) 
+                    cmd.bindedFunc(**options)
+                else:
+                    cmd.bindedFunc()
+            except TypeError:
+                print('Command to be implemented')
