@@ -1,4 +1,4 @@
-from cmdla import APP, Interface, Command, Parameter, dataclass
+from cmdla import APP, Interface, Command, Parameter, dataclass, Switch, Add, Registrar
 
 @dataclass
 class Task:
@@ -84,19 +84,30 @@ def main():
             ),function=unmark_
         )
     
-    list = Command(
+    list_ = Command(
             'list',
             ('ls',),
             acceptsArgs=False,
             accepted_param=(),function=listtasks
         )
     
-    APP.AddToRegistrar((add,rem,mark,unmark,list))
+    switch = Command('group', default_param='name', accepted_param=('name',), function=Switch)
+    
+    APP.AddToRegistrar((add,rem,mark,unmark,list_,))
 
     APP.SetQuitCmd(Command('quit',('q'), acceptsArgs=False))
 
+    foo = Registrar()
+
+    foo.prompt= 'foo '
+
+    Add('foo', foo)
+
+    Interface.exitsSwitch = True
+    Interface.switchCommand = switch
+
 if __name__ == '__main__':
     main()
-    Interface.helpSettings.alias = ('h','c','w')
+    
     Interface.doHelp=True
     Interface.StartLoop()

@@ -39,7 +39,7 @@ class Command:
         self.name = name
         self.alias = alias
         self.default_param = accepted_param[accepted_param.index(default_param)].key \
-            if len(accepted_param)!=0 else default_param
+            if len(accepted_param)!=0 and not isinstance(accepted_param[accepted_param.index(default_param)], str) else default_param
         self.bindedFunc:callable = function
         self.acceptsArgs:bool = acceptsArgs
         self.accepted = accepted_param # Empty => Any

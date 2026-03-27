@@ -11,6 +11,8 @@ class Interface:
     helpSettings: HelpSettings = HelpSettings()
     doHelp: bool = False
     help_docs_path: str = 'description.json'
+    exitsSwitch: bool = False
+    switchCommand: Command = None
     _runFlag:bool = True
     _isFromCmd:bool = True
     _listIndex: int
@@ -89,6 +91,11 @@ class Interface:
             user = cls._FetchInput()
 
             cmd_text = user[:user.find(' ')]
+            if cls.exitsSwitch and cls.switchCommand == cmd_text:
+                remain = user.removeprefix(cmd_text).lstrip()
+                options = Interface._CreateOptionArg(remain, cls.switchCommand.default_param, len(user.rstrip()) == len(cmd_text), cls.switchCommand.accepted) 
+                cls.switchCommand.bindedFunc(**options)
+                continue
             try:
                 cmd = cls.currentReg.GetCommandAt(cmd_text)
             except:
