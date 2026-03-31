@@ -4,20 +4,20 @@ from .help_provider import HelpProvider,pathlib
 import re
 
 
-APP = Registrar()
+GLOBAL = Registrar()
 
 class Interface:
-    currentReg:Registrar = APP
+    currentReg:Registrar = GLOBAL
     helpSettings: HelpSettings = HelpSettings()
     doHelp: bool = False
     help_docs_path: str = 'description.json'
-    exitsSwitch: bool = False
+    existSwitch: bool = False
     switchCommand: Command = None
     _runFlag:bool = True
     _isFromCmd:bool = True
     _listIndex: int
     _listInput:list[str]
-    _helpClass: "Help" # type: ignore
+    _quitCmd: Command= None
 
     @classmethod
     def _Quit(cls):
@@ -75,26 +75,19 @@ class Interface:
 
     @classmethod
     def StartLoop(cls):
-        if cls.doHelp:
-            cls._helpClass = HelpProvider(cls.currentReg, pathlib.Path(cls.help_docs_path)).GenerateHelpCommand()
-            
-            try: cls.currentReg.GetInfo('help')
-            except KeyError:#Doesn't exist
-                cls.currentReg.AddToRegistrar(Command(**cls.helpSettings.asDict, function=cls._helpClass.print_help))   
-            else: cls.currentReg.GetCommandAt('help').bindedFunc = cls._helpClass.print_help
-
-        if cls.currentReg.quitCommand != -1:
-            quitCmd = cls.currentReg.commands[cls.currentReg.quitCommand]
-            cls.currentReg.BindFunction(quitCmd.name, cls._Quit) # Bind quit command to Quit function to flip the flag
+        cls.createHelpFunc()
 
         while cls._runFlag:
             user = cls._FetchInput()
 
             cmd_text = user[:user.find(' ')]
-            if cls.exitsSwitch and cls.switchCommand == cmd_text:
+            if cls.existSwitch and cls.switchCommand == cmd_text:
                 remain = user.removeprefix(cmd_text).lstrip()
                 options = Interface._CreateOptionArg(remain, cls.switchCommand.default_param, len(user.rstrip()) == len(cmd_text), cls.switchCommand.accepted) 
                 cls.switchCommand.bindedFunc(**options)
+                continue
+            if cls._quitCmd is not None and cls._quitCmd == cmd_text:
+                cls._quitCmd.bindedFunc()
                 continue
             try:
                 cmd = cls.currentReg.GetCommandAt(cmd_text)
@@ -110,3 +103,29 @@ class Interface:
                     cmd.bindedFunc()
             except TypeError:
                 print('Command to be implemented')
+
+    @classmethod
+    def createHelpFunc(cls):
+        if cls.doHelp:
+            if cls.currentReg.help_docs_path is None:
+                print(f'The registrar({cls.currentReg.prompt}) doesn\'t have a help docs path')
+                return
+            
+            if  cls.currentReg.helpClass is None:
+                cls.currentReg.helpClass = HelpProvider(cls.currentReg, pathlib.Path(cls.currentReg.help_docs_path)).GenerateHelpCommand()
+            else:
+                return
+            
+            try: cls.currentReg.GetInfo('help')
+            except KeyError:#Doesn't exist
+                cls.currentReg.AddToRegistrar(Command(**cls.helpSettings.asDict, function=cls.currentReg.helpClass.print_help))   
+            else: cls.currentReg.GetCommandAt('help').bindedFunc = cls.currentReg.helpClass.print_help
+    
+    @classmethod
+    def SetQuitCmd(self, cmd: Command = None):
+        '''cmd: Unbinded command'''
+        if cmd is not None:
+            self._quitCmd = cmd
+            self._quitCmd.bindedFunc = self._Quit
+        else:
+            self._quitCmd = Command('quit',('q',),acceptsArgs=False, function=self._Quit)

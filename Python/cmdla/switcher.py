@@ -1,14 +1,17 @@
-from .interface import Interface, Registrar, APP
+from .interface import Interface, Registrar, GLOBAL
 
 class AllSwitch:
-    dictionary: dict = {'global': APP}
+    dictionary: dict = {'global': GLOBAL}
 
 def Switch(**kwarg):
+    '''name: Name of the registrar'''
     name = kwarg.get('name')
-    if name:
+    if name and name!='.':
         Interface.currentReg = AllSwitch.dictionary[name]
-        global APP
-        APP = Interface.currentReg
+    else:
+        Interface.currentReg = AllSwitch.dictionary['global']
+
+    Interface.createHelpFunc()
 
 def Add(name:str, reg: Registrar):
     if isinstance(reg, Registrar):

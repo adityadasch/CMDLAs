@@ -1,0 +1,19 @@
+{
+  "add": [
+    "Add a new task with optional priority",
+    {
+      "task": "The task description",
+      "priority": "Optional priority level (low, medium, high)"
+    }
+  ],
+  "list": [
+    "List all tasks",
+    {}
+  ],
+  "remove": [
+    "Remove a task by index",
+    {
+      "index": "The numeric index of the task to remove"
+    }
+  ]
+}

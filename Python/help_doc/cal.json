@@ -1,0 +1,19 @@
+{
+  "add": [
+    "Add a new event with date",
+    {
+      "event": "The event title or description",
+      "date": "Date of the event (YYYY-MM-DD)"
+    }
+  ],
+  "list": [
+    "List all events",
+    {}
+  ],
+  "remove": [
+    "Remove an event by ID",
+    {
+      "id": "Unique identifier of the event"
+    }
+  ]
+}

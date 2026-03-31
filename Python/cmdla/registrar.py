@@ -5,7 +5,8 @@ class Registrar:
     def __init__(self):
         self.prompt:str = '>' # What should be printed before input?
         self.commands:list[Command] = [] # Commands
-        self.quitCommand = -1
+        self.helpClass = None
+        self.help_docs_path = None
 
     @dispatch
     def AddToRegistrar(self, cmd: Command):
@@ -44,17 +45,6 @@ class Registrar:
         except ValueError: 
             raise KeyError(f'"{name}" is not a valid command')
         print(self.commands[indx])
-    
-    def SetQuitCmd(self, cmd: Command = None, index: int = None):
-        if cmd is not None:
-            self.commands.append(cmd)
-            self.quitCommand = len(self.commands)-1
-        elif index is not None:
-            if index >= len(self.commands): 
-                raise ValueError(f'{index} is greater than length of registered commands list')
-            self.quitCommand = index
-        else:
-            raise ValueError('Excepted one of two arguments: cmd or index')
         
     def BindFunction(self, name:str, func:callable):
         try:indx = self.commands.index(name)
