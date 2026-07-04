@@ -1,0 +1,14 @@
+name: data-science-env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - ipykernel        # Required for Jupyter/VS Code
+  - pip
+  - pip:
+    - black          # Formatter
+    - flake8         # Linter
+  - dataclasses
+  - colorama
+  - plum

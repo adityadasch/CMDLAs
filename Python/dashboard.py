@@ -1,4 +1,8 @@
-from cmdla import Registrar, Parameter, Interface, Command, dataclass, Switch, Add, GLOBAL
+from cmdla.interface import Interface, Command
+from cmdla.switcher import Switch, Add
+from cmdla.utils import requires,validate
+from cmdla.registrar import Registrar
+from cmdla.dataclasses import dataclass, Parameter
 
 @dataclass
 class Note:
@@ -9,17 +13,14 @@ class NotesDB:
     tasks: list[Note] = []
 
     @classmethod
-    def add_task(cls, **kwargs):
-        if kwargs.get('task') is None: print('Please provide task message'); return
-
-        task, p = kwargs.get('task'), kwargs.get('priority')
-        cls.tasks.append(Note(task, p))
+    @requires('task')
+    def add_task(cls,task,priority=None, **kwargs):
+        cls.tasks.append(Note(task, priority))
 
     @classmethod
-    def remove_task(cls, **kwargs):
-        if kwargs.get('index') is None or str(kwargs.get('index')).isdigit(): print('Please provide valid task index'); return
-
-        cls.tasks.pop(int(kwargs.get('index')))
+    @validate(index=lambda x: x.isdigit())
+    def remove_task(cls,index: str, **kwargs):
+        cls.tasks.pop(int(index)-1)
 
     @classmethod
     def list_task(cls):
@@ -93,15 +94,13 @@ def main():
     note = init_note()
     cal = init_calendar()
 
-    Add('note', note); Add('cal',cal)
+    Interface.switchCommand= None
+
+    Add(name='note', reg= note); Add(name='cal', reg=cal)
 
     Switch(name='note')
 
     Interface.doHelp = True
-
-    switch = Command('switch', default_param='name', accepted_param=('name',), function=Switch)
-
-    Interface.existSwitch = True; Interface.switchCommand = switch
 
     Interface.SetQuitCmd()
 

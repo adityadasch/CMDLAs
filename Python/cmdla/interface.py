@@ -58,9 +58,6 @@ class Interface:
                 index = accept.index(option_name)
                 param = accept[index]
                 option[param.key] = option_data
-            
-        
-        
         return option
 
     @classmethod
@@ -101,8 +98,8 @@ class Interface:
                     cmd.bindedFunc(**options)
                 else:
                     cmd.bindedFunc()
-            except TypeError:
-                print('Command to be implemented')
+            except TypeError as e:
+                print('Command to be implemented', e)
 
     @classmethod
     def createHelpFunc(cls):

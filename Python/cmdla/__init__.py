@@ -1,3 +1,4 @@
-from .interface import *
+from . import interface
 from .dataclasses import dataclass
-from .switcher import Switch, Add
+from . import switcher
+from . import utils
